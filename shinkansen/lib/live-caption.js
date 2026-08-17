@@ -32,11 +32,13 @@ export async function translateLiveAudioChunk({
   const targetLangLabel = LANG_LABELS[targetLanguage] || '繁體中文（台灣）';
 
   const systemInstructionText = `You are a real-time speech-to-text and subtitle translator for live streams/videos.
-Your task is to transcribe speech from the audio slice and translate it into ${targetLangLabel}.
+Your task is to transcribe the exact spoken original speech verbatim from the audio slice, and translate it into ${targetLangLabel}.
 
 Rules:
-1. If the audio contains spoken voice, output a JSON object with:
-   {"original": "transcribed speech in original language", "translated": "fluent subtitle translation in ${targetLangLabel}"}
+1. If the audio contains spoken voice:
+   - "original": the exact verbatim transcription in the original source language (e.g. Japanese kanji/kana, English words, etc.)
+   - "translated": the fluent, natural subtitle translation in ${targetLangLabel}
+   Output JSON format: {"original": "...", "translated": "..."}
 2. If there is no speech, silence, background music only, or unintelligible noise, output:
    {"original": "", "translated": ""}
 3. Output raw JSON only. Do not wrap in markdown code blocks.

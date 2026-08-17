@@ -402,6 +402,35 @@
       </label>
     </section>
 
+    <!-- 即時字幕語音翻譯 (Live Caption) -->
+    <section id="live-caption-section">
+      <h2 data-i18n="options.liveCaption.heading">即時字幕語音翻譯</h2>
+      <p class="muted" data-i18n="options.liveCaption.intro">透過分頁音訊擷取與 Gemini 語音模型，即時辨識並翻譯直播、廣播與視訊中的語音（快捷鍵 Alt+L）</p>
+      <label>
+        <span data-i18n="options.liveCaption.model">語音翻譯模型</span>
+        <select id="liveCaptionModel">
+          <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite（低延遲、低成本，推薦）</option>
+          <option value="gemini-3.5-flash-lite">gemini-3.5-flash-lite</option>
+          <option value="gemini-3-flash-preview">gemini-3-flash-preview</option>
+          <option value="gemini-3.6-flash">gemini-3.6-flash（高精準度）</option>
+        </select>
+        <small class="muted" data-i18n="options.liveCaption.modelHint">即時語音辨識與翻譯專用模型，建議選擇 Flash Lite 系列以達到最佳即時性</small>
+      </label>
+      <label>
+        <span data-i18n="options.liveCaption.chunkDuration">音訊採樣切片時間 (秒)</span>
+        <input type="number" id="liveCaptionChunkDuration" min="2" max="10" step="1" value="4">
+        <small class="muted" data-i18n="options.liveCaption.chunkDurationHint">每次錄音切片並送至 AI 翻譯的長度（預設 4 秒）。秒數短延遲低，秒數長語意完整</small>
+      </label>
+      <label>
+        <span data-i18n="options.liveCaption.displayMode">預設顯示模式</span>
+        <select id="liveCaptionDisplayMode">
+          <option value="dual" data-i18n="options.liveCaption.modeDual">雙語對照（原文 + 譯文）</option>
+          <option value="single" data-i18n="options.liveCaption.modeSingle">純譯文</option>
+        </select>
+        <small class="muted" data-i18n="options.liveCaption.displayModeHint">啟動即時字幕時的預設顯示模式（在浮動面板上亦可隨時切換）</small>
+      </label>
+    </section>
+
     <!-- v1.8.41：金額顯示幣值
          v1.8.61:只在繁中 UI 顯示 — TWD/USD 換算對非繁中使用者無意義(匯率以
          USD/TWD 計,英文 / 簡中 UI 使用者預設用 USD)。由 options.js

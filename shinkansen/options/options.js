@@ -248,6 +248,12 @@ async function load() {
   const { customProviderApiKey = '' } = await browser.storage.local.get('customProviderApiKey');
   $('cp-apiKey').value = customProviderApiKey;
 
+  // 即時字幕設定 (Live Caption)
+  const lc = { ...DEFAULTS.liveCaption, ...(s.liveCaption || {}) };
+  if ($('liveCaptionModel')) $('liveCaptionModel').value = lc.model || 'gemini-3.1-flash-lite';
+  if ($('liveCaptionChunkDuration')) $('liveCaptionChunkDuration').value = lc.chunkDurationS ?? 4;
+  if ($('liveCaptionDisplayMode')) $('liveCaptionDisplayMode').value = lc.displayMode || 'dual';
+
   // v1.2.11: YouTube 字幕設定
   const yt = { ...DEFAULTS.ytSubtitle, ...(s.ytSubtitle || {}) };
   // v1.4.0: 字幕翻譯引擎
@@ -1042,6 +1048,13 @@ async function _saveImpl() {
           outputPerMTok: isNaN(out) ? null : out,
         };
       })(),
+    },
+    // 即時字幕設定 (Live Caption)
+    liveCaption: {
+      ...(existing.liveCaption || {}),
+      model: $('liveCaptionModel')?.value || 'gemini-3.1-flash-lite',
+      chunkDurationS: parseUserNum($('liveCaptionChunkDuration')?.value, DEFAULTS.liveCaption.chunkDurationS ?? 4),
+      displayMode: $('liveCaptionDisplayMode')?.value || 'dual',
     },
     // v1.4.13: 三組 preset 快速鍵
     // v1.5.7: engine 接受三種 'gemini' / 'google' / 'openai-compat'，不認識的回退 'gemini'。

@@ -1313,7 +1313,13 @@ const messageHandlers = {
       if (!tabId || !base64Audio) return { ok: false };
       const settings = await getSettings();
       const apiKey = settings.apiKey;
-      if (!apiKey) return { ok: false, error: 'No API Key' };
+      if (!apiKey) {
+        browser.tabs.sendMessage(tabId, {
+          type: 'LIVE_CAPTION_ERROR',
+          payload: { error: '請先至設定頁填寫 Gemini API Key 才能使用即時字幕翻譯' },
+        }).catch(() => {});
+        return { ok: false, error: 'No API Key' };
+      }
 
       try {
         const previousContext = _recentLiveCaptionHistory.slice(-2).join(' ');
@@ -1339,7 +1345,6 @@ const messageHandlers = {
             payload: {
               original: result.original,
               translated: result.translated,
-              displayMode: settings.displayMode || 'single',
             },
           }).catch(() => {});
         }
@@ -1422,7 +1427,12 @@ async function startLiveCaption(tabId) {
         },
       }, (res) => {
         if (res?.ok) {
-          browser.tabs.sendMessage(tabId, { type: 'LIVE_CAPTION_START' }).catch(() => {});
+          browser.tabs.sendMessage(tabId, {
+            type: 'LIVE_CAPTION_START',
+            payload: {
+              displayMode: settings.liveCaption?.displayMode || 'dual',
+            },
+          }).catch(() => {});
           resolve({ ok: true });
         } else {
           _liveCaptionActiveTabId = null;

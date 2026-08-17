@@ -114,24 +114,33 @@
     if (!bodyEl) return;
     if (historyList.length === 0) return;
 
+    // Check if user is scrolled near bottom before updating content
+    const isNearBottom = (bodyEl.scrollHeight - bodyEl.clientHeight) <= (bodyEl.scrollTop + 60);
+
     let html = '';
     historyList.forEach((item, index) => {
       const isLatest = index === historyList.length - 1;
       const itemClass = isLatest ? 'shinkansen-live-caption-item latest' : 'shinkansen-live-caption-item historical';
 
       let itemContent = '';
-      if (currentDisplayMode === 'dual' && item.original) {
-        itemContent += `<div class="shinkansen-live-caption-item-orig">${escapeHtml(item.original)}</div>`;
-      }
-      if (item.translated) {
-        itemContent += `<div class="shinkansen-live-caption-item-trans">${escapeHtml(item.translated)}</div>`;
+      if (item.error) {
+        itemContent = `<div class="shinkansen-live-caption-item-trans" style="color: #ff6b6b;">⚠️ ${escapeHtml(item.error)}</div>`;
+      } else {
+        if (currentDisplayMode === 'dual' && item.original) {
+          itemContent += `<div class="shinkansen-live-caption-item-orig">${escapeHtml(item.original)}</div>`;
+        }
+        if (item.translated) {
+          itemContent += `<div class="shinkansen-live-caption-item-trans">${escapeHtml(item.translated)}</div>`;
+        }
       }
 
       html += `<div class="${itemClass}">${itemContent}</div>`;
     });
 
     bodyEl.innerHTML = html;
-    bodyEl.scrollTop = bodyEl.scrollHeight;
+    if (isNearBottom) {
+      bodyEl.scrollTop = bodyEl.scrollHeight;
+    }
   }
 
   function showOverlay() {
@@ -147,14 +156,9 @@
     }
   }
 
-  function renderCaption({ original, translated, displayMode }) {
+  function renderCaption({ original, translated }) {
     ensureCaptionOverlay();
     showOverlay();
-
-    if (displayMode && displayMode !== currentDisplayMode) {
-      currentDisplayMode = displayMode;
-      updateDualToggleButtonState();
-    }
 
     if (!translated && !original) return;
 
@@ -178,6 +182,22 @@
     renderAllHistory();
   }
 
+  function renderError(errorMessage) {
+    ensureCaptionOverlay();
+    showOverlay();
+
+    historyList.push({
+      id: Date.now() + Math.random(),
+      error: errorMessage || '辨識或翻譯失敗',
+    });
+
+    if (historyList.length > MAX_HISTORY_ITEMS) {
+      historyList.shift();
+    }
+
+    renderAllHistory();
+  }
+
   function escapeHtml(str) {
     if (!str) return '';
     return String(str)
@@ -190,10 +210,17 @@
   // Listen for messages from background
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'LIVE_CAPTION_START') {
+      if (message.payload?.displayMode) {
+        currentDisplayMode = message.payload.displayMode;
+        updateDualToggleButtonState();
+      }
       showOverlay();
       sendResponse({ ok: true });
     } else if (message.type === 'LIVE_CAPTION_RENDER') {
       renderCaption(message.payload || {});
+      sendResponse({ ok: true });
+    } else if (message.type === 'LIVE_CAPTION_ERROR') {
+      renderError(message.payload?.error);
       sendResponse({ ok: true });
     } else if (message.type === 'LIVE_CAPTION_STOP') {
       hideOverlay();

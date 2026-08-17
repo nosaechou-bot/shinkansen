@@ -688,6 +688,7 @@ export const DEFAULT_SETTINGS = {
     enabled: false,
     chunkDurationS: 4,
     model: 'gemini-3.1-flash-lite',
+    displayMode: 'dual',
   },
   // 失敗重試次數(429 / 網路錯誤時 fetchWithRetry 的退避重試上限)
   maxRetries: 3,
@@ -1034,6 +1035,8 @@ export async function getSettings() {
     glossary: { ...DEFAULT_SETTINGS.glossary, ...(saved.glossary || {}) },
     // v1.2.39: 深層 merge ytSubtitle，確保新欄位（model / pricing）有預設值
     ytSubtitle: { ...DEFAULT_SETTINGS.ytSubtitle, ...(saved.ytSubtitle || {}) },
+    // 即時字幕設定深層 merge
+    liveCaption: { ...DEFAULT_SETTINGS.liveCaption, ...(saved.liveCaption || {}) },
     // v1.8.3: partialMode 深層 merge，確保 maxUnits 預設值有 fallback
     partialMode: { ...DEFAULT_SETTINGS.partialMode, ...(saved.partialMode || {}) },
     // v1.4.12: translatePresets——使用者自訂三組就完全以自訂為準（不做 per-slot merge），

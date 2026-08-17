@@ -38,6 +38,7 @@
     'popup.label.modeDual': '雙語對照',
     'popup.label.autoTranslate': '自動翻譯指定網站',
     'popup.label.autoConvertZh': '簡繁自動互轉（免費）',
+    'popup.label.liveCaption': '即時字幕語音翻譯 (Alt+L)',
     'popup.label.ytSubtitle': 'YouTube 字幕翻譯',
     'popup.label.driveSubtitle': 'Drive 影片字幕翻譯',
     'popup.label.ytCaptionSize': '字幕大小',

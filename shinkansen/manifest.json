@@ -18,7 +18,9 @@
   "permissions": [
     "storage",
     "alarms",
-    "webNavigation"
+    "webNavigation",
+    "tabCapture",
+    "offscreen"
   ],
   "host_permissions": [
     "<all_urls>",
@@ -84,6 +86,7 @@
         "content-youtube.js",
         "content-drive.js",
         "content-touch.js",
+        "content-live-caption.js",
         "content.js",
         "content-shortcuts.js",
         "content-floating-icon.js"
@@ -116,7 +119,9 @@
         "lib/vendor/pdf-lib/*",
         "lib/vendor/fonts/*",
         "icons/icon-48.png",
-        "popup/popup.html"
+        "popup/popup.html",
+        "content-live-caption.css",
+        "offscreen/*"
       ],
       "matches": ["<all_urls>"]
     }
@@ -143,12 +148,12 @@
       },
       "description": "翻譯本頁 - 預設 3"
     },
-    "send-to-instapaper": {
+    "toggle-live-caption": {
       "suggested_key": {
-        "default": "Alt+I",
-        "mac": "Alt+I"
+        "default": "Alt+L",
+        "mac": "Alt+L"
       },
-      "description": "送到 Instapaper"
+      "description": "開啟/關閉即時字幕翻譯"
     }
   }
 }

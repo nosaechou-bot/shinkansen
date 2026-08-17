@@ -401,6 +401,14 @@ async function init() {
     }
   } catch { /* 非影片頁面，保持 hidden */ }
 
+  // 即時字幕狀態初始
+  try {
+    const liveStatus = await browser.runtime.sendMessage({ type: 'GET_LIVE_CAPTION_STATUS' });
+    if ($('live-caption-toggle')) {
+      $('live-caption-toggle').checked = !!liveStatus?.active;
+    }
+  } catch { /* 略 */ }
+
   // v1.8.12: 只有當 translatePresets 中有任一 slot 用 Gemini engine 時，才提醒未設 API Key。
   // 使用者若三組 preset 都改成 Google MT / 自訂模型，popup 不再嘮叨他沒填 Gemini Key。
   if (!apiKey && presetsRequireGemini(translatePresets)) {
@@ -464,6 +472,31 @@ $('auto-convert-zh-toggle').addEventListener('change', async (e) => {
       await browser.tabs.sendMessage(tab.id, { type: 'SET_AUTO_CONVERT_ZH', payload: { enabled } }).catch(() => {});
     }
   } catch { /* 非可注入頁面，安靜忽略 */ }
+});
+
+// 即時字幕翻譯 toggle
+$('live-caption-toggle')?.addEventListener('change', async (e) => {
+  const enabled = e.target.checked;
+  try {
+    if (enabled) {
+      const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+      if (!tab?.id) return;
+      const res = await browser.runtime.sendMessage({ type: 'START_LIVE_CAPTION', payload: { tabId: tab.id } });
+      if (!res?.ok) {
+        e.target.checked = false;
+        statusEl.textContent = res?.error || '啟動即時字幕失敗';
+        statusEl.style.color = '#ff3b30';
+      } else {
+        closePopup();
+      }
+    } else {
+      await browser.runtime.sendMessage({ type: 'STOP_LIVE_CAPTION' });
+    }
+  } catch (err) {
+    e.target.checked = false;
+    statusEl.textContent = err.message || '即時字幕切換失敗';
+    statusEl.style.color = '#ff3b30';
+  }
 });
 
 // 翻譯目標語言切換 — 立刻寫 storage(content script 下一次翻譯讀新值生效;

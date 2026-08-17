@@ -61,13 +61,14 @@ Shinkansen 是一款 Chrome 擴充功能，將英文（或其他外語）網頁�
 | 簡繁本地互轉 | ✅ | 簡繁段落走本地 OpenCC 字典轉換，免費零 API；`autoConvertZh` 自動模式 |
 | 送到 Instapaper | ✅ | 把已翻譯整頁存進 Instapaper（含 AI 摘要）；popup 按鈕 + Alt+I 快速鍵 |
 | 文件翻譯（PDF / EPUB / TXT / Markdown / HTML） | ✅ | 上傳整份翻譯；PDF 保留版面輸出譯文 PDF；EPUB 全書術語表 / 章節選翻 / 預覽編輯 / 雙語譯本；TXT / Markdown / HTML 沿用章節管線，譯文輸出格式 = 輸入格式；詳見 §17 |
+| 即時字幕語音翻譯（Live Caption） | ✅ | `chrome.tabCapture` + Offscreen Web Audio 擷取音訊串流，透過 Gemini 多模態語音辨識與翻譯，於頁面渲染浮動即時字幕 Overlay；支援雙語對照與 `Alt+L` 快捷鍵 |
 | iOS／iPadOS Safari | 🚧 | TestFlight 階段；四指輕點觸發；popup／options 觸控調整；不含 PDF 翻譯 |
 
 ### 2.3 明確不做
 
-滑鼠懸停顯示、原文樣式客製、輸入框翻譯、劃詞翻譯、DeepL / Yandex 等第三方付費翻譯服務、影片字幕（YouTube 除外，已支援）、延遲載入、淺色/深色主題切換。
+滑鼠懸停顯示、原文樣式客製、輸入框翻譯、劃詞翻譯、DeepL / Yandex 等第三方付費翻譯服務、延遲載入、淺色/深色主題切換。
 
-> 備注：v1.4.0 起已加入 Google Translate 非官方免費端點（Opt+G，不需 API Key），同時保留 Gemini（Opt+S）。Google 官方 Cloud Translation v2 API（付費）不在支援範圍內。
+> 備注：v1.4.0 起已加入 Google Translate 非官方免費端點（Opt+G，不需 API Key），同時保留 Gemini（Opt+S）。Google 官方 Cloud Translation v2 API（付費）不在支援範圍內。即時字幕翻譯走自建 tabCapture + Gemini 音訊多模態管線。
 
 ---
 

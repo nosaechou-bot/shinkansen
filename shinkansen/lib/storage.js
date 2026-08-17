@@ -683,6 +683,12 @@ export const DEFAULT_SETTINGS = {
     // 預設 100 = 跟隨各平台原生字幕大小（桌面零改變）。設定在 popup,只在 YouTube 影片頁顯示。
     captionScale: 100,
   },
+  // 即時字幕翻譯設定（Chrome Live Caption 自建音訊管線）
+  liveCaption: {
+    enabled: false,
+    chunkDurationS: 4,
+    model: 'gemini-3.1-flash-lite',
+  },
   // 失敗重試次數(429 / 網路錯誤時 fetchWithRetry 的退避重試上限)
   maxRetries: 3,
   // 每個 tab 同時最多飛出幾個翻譯批次(content.js 側的並發上限)。

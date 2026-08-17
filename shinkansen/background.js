@@ -20,6 +20,7 @@ import { codedError } from './lib/bg-error.js'; // 使用者面對錯誤帶 erro
 import { saveToInstapaper, buildInstapaperPayload } from './lib/instapaper.js'; // 送到 Instapaper（Alt+I 快捷鍵路徑）
 import { planStreamingPartialReuse } from './lib/stream-reuse.js'; // v1.10.61: streaming 批次 missing-only 分流
 import { convertZhBatch, ZH_CONVERT_DIRECTIONS } from './lib/zh-convert.js'; // 簡繁本地互轉（OpenCC 字典，lazy load）
+import { translateLiveAudioChunk } from './lib/live-caption.js'; // 即時字幕語音辨識與翻譯
 import './lib/domain-utils.js'; // UMD 副作用載入（掛 globalThis.__SKDomain）：網域術語表 byDomain 比對走與白名單同一份規則
 
 // instapaper-keys.js（gitignored）的 consumer 金鑰載入。
@@ -1278,7 +1279,173 @@ const messageHandlers = {
     async: true,
     handler: async (payload, sender) => ({ summary: await generateInstapaperSummary(payload?.text, sender) }),
   },
+
+  // ─── 即時字幕翻譯（Live Caption）handlers ───────────────────────────
+  START_LIVE_CAPTION: {
+    async: true,
+    handler: async (payload, sender) => {
+      let tabId = payload?.tabId;
+      if (!tabId) {
+        const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+        tabId = tab?.id;
+      }
+      if (!tabId) throw new Error('No active tab found');
+      return await startLiveCaption(tabId);
+    },
+  },
+  STOP_LIVE_CAPTION: {
+    async: true,
+    handler: async () => {
+      return await stopLiveCaption();
+    },
+  },
+  GET_LIVE_CAPTION_STATUS: {
+    async: false,
+    handler: () => ({
+      active: !!_liveCaptionActiveTabId,
+      tabId: _liveCaptionActiveTabId,
+    }),
+  },
+  PROCESS_LIVE_CAPTION_AUDIO_CHUNK: {
+    async: true,
+    handler: async (payload) => {
+      const { tabId, base64Audio, mimeType } = payload || {};
+      if (!tabId || !base64Audio) return { ok: false };
+      const settings = await getSettings();
+      const apiKey = settings.apiKey;
+      if (!apiKey) return { ok: false, error: 'No API Key' };
+
+      try {
+        const previousContext = _recentLiveCaptionHistory.slice(-2).join(' ');
+        const result = await translateLiveAudioChunk({
+          base64Audio,
+          mimeType,
+          targetLanguage: settings.targetLanguage || 'zh-TW',
+          apiKey,
+          model: settings.liveCaption?.model || 'gemini-3.1-flash-lite',
+          previousContext,
+        });
+
+        if (result.translated || result.original) {
+          if (result.translated) {
+            _recentLiveCaptionHistory.push(result.translated);
+            if (_recentLiveCaptionHistory.length > 5) {
+              _recentLiveCaptionHistory.shift();
+            }
+          }
+
+          browser.tabs.sendMessage(tabId, {
+            type: 'LIVE_CAPTION_RENDER',
+            payload: {
+              original: result.original,
+              translated: result.translated,
+              displayMode: settings.displayMode || 'single',
+            },
+          }).catch(() => {});
+        }
+
+        // 用量記錄
+        if (result.usage && (result.usage.inputTokens > 0 || result.usage.outputTokens > 0)) {
+          const pricing = getPricingForModel(result.model, settings) || settings.pricing;
+          const billedCostUSD = computeCostUSD(result.usage.inputTokens, result.usage.outputTokens, pricing);
+          usageDB.logTranslation({
+            url: `live-caption://${tabId}`,
+            title: '即時字幕語音翻譯',
+            engine: 'gemini',
+            model: result.model,
+            inputTokens: result.usage.inputTokens,
+            cachedTokens: result.usage.cachedTokens || 0,
+            outputTokens: result.usage.outputTokens,
+            costUSD: billedCostUSD,
+            source: 'live-caption',
+            targetLang: settings.targetLanguage || 'zh-TW',
+          }).catch(() => {});
+        }
+
+        return { ok: true };
+      } catch (err) {
+        debugLog('warn', 'live-caption', 'audio chunk translate failed', { error: err.message });
+        return { ok: false, error: err.message };
+      }
+    },
+  },
 };
+
+// ─── 即時字幕翻譯狀態（Live Caption）─────────────────────────────
+let _liveCaptionActiveTabId = null;
+let _recentLiveCaptionHistory = [];
+
+async function ensureOffscreenDocument() {
+  if (typeof chrome === 'undefined' || !chrome.offscreen) return false;
+  try {
+    const existing = await chrome.offscreen.hasDocument?.();
+    if (!existing) {
+      await chrome.offscreen.createDocument({
+        url: 'offscreen/offscreen.html',
+        reasons: ['USER_MEDIA', 'AUDIO_PLAYBACK'],
+        justification: 'Capture tab audio for live captions',
+      });
+    }
+    return true;
+  } catch (err) {
+    debugLog('warn', 'live-caption', 'create offscreen doc failed', { error: err.message });
+    return false;
+  }
+}
+
+async function startLiveCaption(tabId) {
+  if (typeof chrome === 'undefined' || !chrome.tabCapture) {
+    throw new Error('tabCapture API not supported in this browser.');
+  }
+
+  _recentLiveCaptionHistory = [];
+  const hasOffscreen = await ensureOffscreenDocument();
+  if (!hasOffscreen) {
+    throw new Error('Offscreen document creation failed.');
+  }
+
+  return new Promise((resolve, reject) => {
+    chrome.tabCapture.getMediaStreamId({ targetTabId: tabId }, async (streamId) => {
+      if (chrome.runtime.lastError || !streamId) {
+        return reject(new Error(chrome.runtime.lastError?.message || 'Failed to get media stream ID'));
+      }
+
+      const settings = await getSettings();
+      _liveCaptionActiveTabId = tabId;
+
+      chrome.runtime.sendMessage({
+        type: 'START_OFFSCREEN_CAPTURE',
+        payload: {
+          streamId,
+          tabId,
+          chunkDurationMs: (settings.liveCaption?.chunkDurationS || 4) * 1000,
+        },
+      }, (res) => {
+        if (res?.ok) {
+          browser.tabs.sendMessage(tabId, { type: 'LIVE_CAPTION_START' }).catch(() => {});
+          resolve({ ok: true });
+        } else {
+          _liveCaptionActiveTabId = null;
+          reject(new Error(res?.error || 'Failed to start offscreen capture'));
+        }
+      });
+    });
+  });
+}
+
+async function stopLiveCaption() {
+  const tabId = _liveCaptionActiveTabId;
+  _liveCaptionActiveTabId = null;
+
+  try {
+    chrome.runtime.sendMessage({ type: 'STOP_OFFSCREEN_CAPTURE' });
+  } catch (_) {}
+
+  if (tabId) {
+    browser.tabs.sendMessage(tabId, { type: 'LIVE_CAPTION_STOP' }).catch(() => {});
+  }
+  return { ok: true };
+}
 
 // 錯誤 i18n 協定（lib/bg-error.js）：err 帶 skCode 時把 errorCode / errorParams
 // 一併放進 response / STREAMING_ERROR payload，UI 端（content / translate-doc）
@@ -2615,6 +2782,19 @@ async function handleScanTermRenderings(payload, sender) {
 //   storage 內仍維持 slot 1/2/3 編號，故 command id 0 → slot 2 mapping 寫死。
 const COMMAND_ID_TO_SLOT = { 0: 2, 1: 1, 3: 3 };
 browser.commands.onCommand.addListener(async (command) => {
+  // 即時字幕翻譯（Alt+L）
+  if (command === 'toggle-live-caption') {
+    const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.id) return;
+    if (_liveCaptionActiveTabId === tab.id) {
+      await stopLiveCaption();
+    } else {
+      await startLiveCaption(tab.id).catch((err) => {
+        debugLog('warn', 'live-caption', 'toggle command failed', { error: err.message });
+      });
+    }
+    return;
+  }
   // 送到 Instapaper（Alt+I）：走背景 OAuth + fetch，回饋走 content toast。
   if (command === 'send-to-instapaper') {
     handleSendToInstapaperCommand().catch(() => {});
